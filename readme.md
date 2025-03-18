@@ -9,6 +9,7 @@ It’s built for F1 enthusiasts and data science fans who want to explore predic
 - [Setup](#setup)
 - [Usage](#usage)
 - [Contributing](#contributing)
+- [License](#license)
 
 # Background and Motivation
 
@@ -49,3 +50,6 @@ Here’s how to use it:
 Wanna help out? Awesome! Just:
 - Submit a pull request with your changes.
 - Open an issue for bugs or ideas.
+
+## License
+This project is licensed under the [MIT License](LICENSE). See the [LICENSE](LICENSE) file for details.
