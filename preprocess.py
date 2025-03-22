@@ -9,40 +9,40 @@ qualifying = pd.read_csv(os.path.join(data_dir, "qualifying.csv"))
 
 # Step 1: Merge results with races
 data = results.merge(races[["raceId", "year"]], on="raceId")
-print("After merging with races, columns:", data.columns.tolist())
+print("\nAfter merging with races, columns:", data.columns.tolist())
 
 # Step 2: Merge with drivers
 data = data.merge(drivers[["driverId", "driverRef"]], on="driverId")
-print("After merging with drivers, columns:", data.columns.tolist())
+print("\nAfter merging with drivers, columns:", data.columns.tolist())
 
 # Step 3: Merge with qualifying, explicitly handle overlapping columns
 data = data.merge(qualifying[["raceId", "driverId", "position"]], on=["raceId", "driverId"], suffixes=('', '_qual'))
-print("After merging with qualifying, columns:", data.columns.tolist())
+print("\nAfter merging with qualifying, columns:", data.columns.tolist())
 
 # Step 4: Rename qualifying position (which is now position_qual due to suffix)
 if "position_qual" in data.columns:
     data = data.rename(columns={"position_qual": "qualifying_position"})
 else:
-    print("Error: position_qual not found after merge. Check qualifying.csv.")
+    print("\nError: position_qual not found after merge. Check qualifying.csv.")
     print("Current columns:", data.columns.tolist())
     exit(1)
-print("After renaming qualifying position, columns:", data.columns.tolist())
+print("\nAfter renaming qualifying position, columns:", data.columns.tolist())
 
 # Step 5: Set is_winner using position from results.csv
 if "position" in data.columns:
     data["is_winner"] = (data["position"] == 1).astype(int)
 else:
-    print("Error: position not found. Check results.csv.")
+    print("\nError: position not found. Check results.csv.")
     print("Current columns:", data.columns.tolist())
     exit(1)
-print("After setting is_winner, columns:", data.columns.tolist())
+print("\nAfter setting is_winner, columns:", data.columns.tolist())
 
 # Step 6: Sort by year and raceId for chronological order
 data = data.sort_values(["year", "raceId"])
 
 # Step 7: Calculate past_wins
 data["past_wins"] = data.groupby("driverId")["is_winner"].shift().cumsum().fillna(0)
-print("After calculating past_wins, columns:", data.columns.tolist())
+print("\nAfter calculating past_wins, columns:", data.columns.tolist())
 
 # Step 8: Select required columns
 required_cols = ["driverRef", "qualifying_position", "past_wins", "is_winner"]
