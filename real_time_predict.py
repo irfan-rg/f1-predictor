@@ -55,28 +55,30 @@ def main():
     driver_times_sorted = sorted(driver_times, key=lambda x: x[1])
     grid_positions = {driver_number: position + 1 for position, (driver_number, time) in enumerate(driver_times_sorted)}
 
-    # Map driver numbers to driver references
+    # Map driver numbers to driver references AND team names
     drivers_url = f"https://api.openf1.org/v1/drivers?meeting_key={meeting_key}"
     response = requests.get(drivers_url)
     response.raise_for_status()
     drivers = response.json()
     if not drivers:
         raise ValueError("No driver data found for this meeting")
-    driver_number_to_ref = {}
+    driver_number_to_ref_team = {}
     for driver in drivers:
-        if "driver_number" in driver and "broadcast_name" in driver:
+        if "driver_number" in driver and "last_name" in driver and "team_name" in driver:
             driver_number = str(driver["driver_number"])
             # Normalize driver name: "O PIASTRI" -> "piastri"
-            driver_ref = driver["broadcast_name"].replace(" ", "").lower()
-            if driver_ref[0].isalpha() and driver_ref[1:].isalpha():
-                driver_ref = driver_ref[1:]
+            driver_ref = driver["last_name"].replace(" ", "").lower()
             # Additional mapping to match common dataset formats
-            driver_ref = driver_ref.replace("verstappen", "max_verstappen").replace("hamilton", "lewis_hamilton").replace("leclerc", "charles_leclerc")
-            driver_number_to_ref[driver_number] = driver_ref
+            # driver_ref = driver_ref.replace("verstappen", "max_verstappen").replace("hamilton", "lewis_hamilton").replace("leclerc", "charles_leclerc")
+            team_name = driver["team_name"]
+            driver_number_to_ref_team[driver_number] = (driver_ref, team_name)
 
-    # Create grid DataFrame
-    data = [(driver_number_to_ref.get(str(driver_number), f"driver_{driver_number}"), position) for driver_number, position in grid_positions.items()]
-    grid_df = pd.DataFrame(data, columns=["driverRef", "grid_position"])
+    # Create grid DataFrame with team names
+    data = [(driver_number_to_ref_team.get(str(driver_number), (f"driver_{driver_number}", "Unknown"))[0],
+             driver_number_to_ref_team.get(str(driver_number), (f"driver_{driver_number}", "Unknown"))[1],
+             position)
+            for driver_number, position in grid_positions.items()]
+    grid_df = pd.DataFrame(data, columns=["driverRef", "team", "grid_position"])
     grid_df = grid_df.sort_values("grid_position")
 
     # Load historical data for past wins
@@ -87,7 +89,7 @@ def main():
     new_race = pd.merge(grid_df, pd.Series(driver_past_wins, name="past_wins"), left_on="driverRef", right_index=True, how="left")
     new_race["past_wins"] = new_race["past_wins"].fillna(0)
     new_race = new_race.set_index("driverRef")
-    new_race = new_race[["grid_position", "past_wins"]]
+    new_race = new_race[["team", "grid_position", "past_wins"]]
     new_race = new_race.rename(columns={"grid_position": "qualifying_position"})
 
     # Heuristic for prediction
@@ -95,12 +97,12 @@ def main():
     max_wins = max(new_race["past_wins"].max(), 1)
     win_scores = (new_race["past_wins"] / max_wins) ** 0.5  # Square root to balance
 
-    # Manual form factor for 2023-2024 dominance (since we can't calculate recent_wins)
+    # Manual form factor for 2023-2024 dominance
     form_boost = pd.Series(1.0, index=new_race.index)
     dominant_drivers = {
         "max_verstappen": 1.5,  # Verstappen dominated 2023-2024
         "lewis_hamilton": 1.1,  # Hamilton has been strong
-        "charles_leclerc": 1.1,  # Leclerc has been competitive
+        "charles_leclerc": 1.1, # Leclerc has been competitive
         "piastri": 1.2,         # Piastri has been on the rise
         "norris": 1.2,          # Norris has been consistent
     }
@@ -117,14 +119,30 @@ def main():
     probs = probs / probs.sum()
 
     # Sort drivers by probability (highest to lowest)
-    prob_df = pd.DataFrame({"driver": new_race.index, "probability": probs})
+    prob_df = pd.DataFrame({"driver": new_race.index, "team": new_race["team"], "probability": probs})
     prob_df = prob_df.sort_values(by="probability", ascending=False)
 
-    # Show the win probabilities in percentage format
-    print(f"\nWin probabilities for the {RACE_COUNTRY} Grand Prix {RACE_YEAR}:")
+    # Add display names for drivers (e.g., "max_verstappen" -> "Max Verstappen")
+    prob_df["driver_display"] = prob_df["driver"].apply(lambda x: x.replace("_", " ").title())
+
+    # Calculate column widths dynamically
+    driver_width = max(len(name) for name in prob_df["driver_display"]) + 2  # Add padding
+    team_width = max(len(team) for team in prob_df["team"]) + 2
+    probability_width = 15  # Fixed width for "Win Probability"
+
+    # Create header and separator
+    header = f"{'Driver':<{driver_width}}  {'Team':<{team_width}}  {'Win Probability':>{probability_width}}"
+    separator = "-" * (driver_width + team_width + probability_width + 4)  # 4 for spaces between columns
+
+    # Print the table
+    print(f"\nWin probabilities for the {RACE_COUNTRY} Grand Prix {RACE_YEAR}:\n")
+    print(header)
+    print(separator)
     for _, row in prob_df.iterrows():
+        driver_display = row["driver_display"]
+        team = row["team"]
         percentage = row["probability"] * 150
-        print(f"{row['driver']}: {percentage:.0f}%")
+        print(f"{driver_display:<{driver_width}}  {team:<{team_width}}  {percentage:>{probability_width}.0f}%")
 
 if __name__ == "__main__":
     try:
