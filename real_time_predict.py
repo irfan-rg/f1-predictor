@@ -4,7 +4,7 @@ from collections import defaultdict
 import numpy as np
 
 # Configure the race
-RACE_COUNTRY = "China"
+RACE_COUNTRY = "Japan"
 RACE_YEAR = 2025
 
 # Fetch session key from OpenF1 API
