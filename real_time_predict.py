@@ -4,7 +4,7 @@ from collections import defaultdict
 import numpy as np
 
 # Configure the race
-RACE_COUNTRY = "Japan"
+RACE_COUNTRY = "Bahrain"
 RACE_YEAR = 2025
 
 # Fetch session key from OpenF1 API
@@ -141,7 +141,7 @@ def main():
     for _, row in prob_df.iterrows():
         driver_display = row["driver_display"]
         team = row["team"]
-        percentage = row["probability"] * 150
+        percentage = row["probability"] * 300
         print(f"{driver_display:<{driver_width}}  {team:<{team_width}}  {percentage:>{probability_width}.0f}%")
 
 if __name__ == "__main__":
